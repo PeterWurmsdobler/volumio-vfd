@@ -78,8 +78,7 @@ To run as a service:
 
 The concept is that there are:
 
-- a volumio client using the SocketIO client and producing metadate in a dictionary,
+- a volumio client using the SocketIO client and producing a player state including music metat data,
 - an abstract character interface to a display and a concrete implementation for the Noritake display,
-- a clock producing a one second update as a text string to be used if the player is not operational,
-- a main application combining both Volumio and clock messages depending on states.
+- a main application combining both Volumio client and state dependent display.
 

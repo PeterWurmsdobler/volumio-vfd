@@ -21,8 +21,8 @@ class CharacterDisplayNoritake(CharacterDisplay):
         )
         self.character_width: int = 8
         self.character_height: int = 16
-        self._width: int = self.vfd.config.width / self.character_width
-        self._height: int = self.vfd.config.height / self.character_height
+        self._width: int = self.vfd.config.width // self.character_width
+        self._height: int = self.vfd.config.height // self.character_height
 
     @property
     def width(self) -> int:
