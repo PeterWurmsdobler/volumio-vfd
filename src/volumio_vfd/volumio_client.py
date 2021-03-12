@@ -9,8 +9,14 @@ from socketIO_client import SocketIO
 
 from volumio_vfd.player_status import PlayerState, PlayerStatus
 
+log = logging.getLogger(__name__)
 
-class VolumioClient(object):
+
+def on_GetState_response(*args: Any) -> None:
+    log.debug("********* Got Response **************")
+
+
+class VolumioClient(threading.Thread):
     """The Client to Volumio to get music meta data and put them into a queue.
 
     Theis client uses a socket IO client to listen to the Volumio music data
@@ -19,104 +25,69 @@ class VolumioClient(object):
     """
 
     def __init__(
-        self, dataqueue: queue.Queue, server: str = "localhost", port: int = 3000
-    ):
+        self, status_queue: queue.Queue, server: str = "localhost", port: int = 3000
+    ) -> None:
         """Create instances with mandatory queue, and optional server and port."""
-        self.dataqueue = dataqueue
-        self.server = server
-        self.port = port
 
-        self._running_lock = threading.Lock()
-        self._running = False
+        super(VolumioClient, self).__init__(target=self._run, daemon=True)
+        self._stop_event = threading.Event()
+        self._status_queue = status_queue
+        self._server = server
+        self._port = port
 
-        self.client_thread: Optional[threading.Thread] = None
-
-    def start(self) -> None:
-        """Start Volumio client thread."""
-
-        if self.client_thread is None:
-            self.client_thread = threading.Thread(target=self._run)
-            self.client_thread.daemon = True
-            self.client_thread.start()
-        else:
-            logging.debug("Thread already runnning.")
-
-    def stop(self) -> None:
-        """Stop Volumio client thread."""
-
-        if self.client_thread is not None:
-
-            with self._running_lock:
-                self._running = False
-
-            self.client_thread.join()
-            self.client_thread = None
+    def join(self, timeout: Optional[float] = None) -> None:
+        """Set stop event and join within a given time period."""
+        log.debug("Ask client to stop ...")
+        self._stop_event.set()
+        super().join(timeout)
 
     def _run(self) -> None:
-        """Thread runner to consume data and produce music data objects."""
+        """private thread runner to consume data and produce music data objects."""
 
-        with self._running_lock:
-            self._running = True
+        log.debug("Volumio 2 Web Service client starting ...")
+        log.debug(f"Connecting to Volumio 2 Web Service on {self._server}:{self._port}")
 
-        logging.debug("Volumio 2 musicdata service starting ...")
-        logging.debug(
-            "Connecting to Volumio Web Service on {0}:{1}".format(
-                self.server, self.port
-            )
-        )
-
-        with SocketIO(self.server, self.port) as socketIO:
-            logging.debug("Connected to Volumio Web Service")
+        with SocketIO(self._server, self._port) as socketIO:
+            log.debug("Connected to Volumio 2 Web Service")
             socketIO.on("pushState", self._on_state_response)
+            socketIO.emit("GetState", on_GetState_response)
 
             # Request initial values
             socketIO.emit("getState", "")
 
-            while self._running:
+            while not self._stop_event.is_set():
                 socketIO.wait_for_callbacks(seconds=20)
                 socketIO.emit("getState", "")
 
     def _on_state_response(self, *args: Any) -> None:
-        # Read musicplayer status and update musicdata
 
-        volumio_status = args[0]
+        response = args[0]
+        log.debug(f"_on_state_response: {response}")
 
-        player_status = PlayerStatus()
+        status = PlayerStatus()
 
-        state = volumio_status.get("status").lower()
+        state = response.get("status").lower()
         if state == "stop":
-            player_status.state = PlayerState.Stopped
+            status.state = PlayerState.Stopped
         elif state == "pause":
-            player_status.state = PlayerState.Paused
+            status.state = PlayerState.Paused
         elif state == "play":
-            player_status.state = PlayerState.Playing
+            status.state = PlayerState.Playing
         else:
-            player_status.state = PlayerState.Stopped
+            status.state = PlayerState.Stopped
 
         # String values
-        player_status.performer = (
-            volumio_status["artist"] if "artist" in volumio_status else ""
-        )
-        player_status.composer = (
-            volumio_status["artist"] if "artist" in volumio_status else ""
-        )
-        player_status.oeuvre = (
-            volumio_status["album"] if "album" in volumio_status else ""
-        )
-        player_status.part = (
-            volumio_status["title"] if "title" in volumio_status else ""
-        )
+        status.performer = response["artist"] if "artist" in response else ""
+        status.composer = response["artist"] if "artist" in response else ""
+        status.oeuvre = response["album"] if "album" in response else ""
+        status.part = response["title"] if "title" in response else ""
 
         # Numeric values
-        player_status.elapsed = (
-            int(volumio_status["seek"]) if "seek" in volumio_status else 0
-        )
-        player_status.duration = (
-            int(volumio_status["duration"]) if "duration" in volumio_status else 0
-        )
-        player_status.remaining = (
-            int(volumio_status["volume"]) if "volume" in volumio_status else 0
-        )
+        status.elapsed = int(response["seek"]) if "seek" in response else 0
+        status.duration = int(response["duration"]) if "duration" in response else 0
+        status.remaining = int(response["volume"]) if "volume" in response else 0
 
-        # put music data item on queue.
-        self.dataqueue.put(player_status, block=False)
+        log.debug(f"_on_state_response: {status}")
+
+        # put PLayer Status on queue.
+        self._status_queue.put(status, block=False)

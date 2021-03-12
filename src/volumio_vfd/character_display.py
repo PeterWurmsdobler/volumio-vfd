@@ -58,7 +58,7 @@ class CharacterDisplay(metaclass=abc.ABCMeta):
             volume_str = f"{volume}%"
             self.write(volume_str, line, self.width - len(volume_str) - 1)
 
-    def update(self, timestamp: datetime.datetime, new_status: PlayerStatus) -> None:
+    def update_status(self, new_status: PlayerStatus) -> None:
         """Update the display with latest player status."""
 
         # Clear screen if there is a change of state
@@ -66,10 +66,7 @@ class CharacterDisplay(metaclass=abc.ABCMeta):
             self.clear()
 
         # If stopped we simply display the time
-        if new_status.state == PlayerState.Stopped:
-            timestr = timestamp.strftime("%H:%M:%S")
-            self.write(timestr, 1, (self.width - len(timestr)) // 2)
-        else:
+        if new_status.state != PlayerState.Stopped:
             self._update_item(new_status.performer, self.current_status.performer, 0)
             self._update_item(new_status.composer, self.current_status.composer, 1)
             self._update_item(new_status.oeuvre, self.current_status.oeuvre, 2)
@@ -80,3 +77,11 @@ class CharacterDisplay(metaclass=abc.ABCMeta):
             self._update_seconds(new_status.remaining, 3)
 
         self.current_status = new_status
+
+    def update_time(self, timestamp: datetime.datetime) -> None:
+        """Update the display with latest time."""
+
+        # If stopped we simply display the time
+        if self.current_status.state == PlayerState.Stopped:
+            timestr = timestamp.strftime("%H:%M:%S")
+            self.write(timestr, 1, (self.width - len(timestr)) // 2)
