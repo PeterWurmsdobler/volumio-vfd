@@ -1,0 +1,28 @@
+# To get python3.7 working with pip on the Debian jessie distribtion (in order to install packages)
+# it is necessary to link python3 to a newer version of openssh than is provided with jessie.
+# Follow the instructions derived from https://jameskiefer.com/posts/installing-python-3.7-on-debian-8/
+
+# First, get and build openssl
+cd $HOME
+curl https://www.openssl.org/source/openssl-1.1.1j.tar.gz | tar xz
+cd openssl-1.1.1j
+./config shared --prefix=/usr/local
+make -j 4
+sudo make install
+
+mkdir lib
+cp ./*.{so,so.1.1,a,pc} ./lib
+
+# Second, build Python against new openssh
+apt-get update
+apt-get install build-essential checkinstall -y
+apt-get install libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev -y
+
+# cd into a working directory, then
+cd $HOME
+wget https://www.python.org/ftp/python/3.7.9/Python-3.7.9.tgz
+tar xzf Python-3.7.9.tgz
+cd Python-3.7.9 
+./configure --with-openssl=$HOME/openssl-1.1.1j
+make -j 4
+make altinstall

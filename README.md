@@ -43,6 +43,8 @@ to `/boot/userconfig.txt` , then reboot and SPI should be enabled.
 
 To get python3.7, follow the instructions on [Install Python 3.7 on Raspberry PI](https://installvirtual.com/install-python-3-7-on-raspberry-pi/). Only replace `3.7.0` with `3.7.9` to get the latest of `3.7`.
 
+On a RaspberryPi-4, running Volumio2 (which uses Debian jessie), it is a bit more involved as SSL support will only work if python is linked against a later version of openssh. More on that in [here.](misc/python-3.7-install.txt)
+
 
 ## Install
 
