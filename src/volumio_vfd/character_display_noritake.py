@@ -41,5 +41,5 @@ class CharacterDisplayNoritake(CharacterDisplay):
     def write(self, text: str, line: int, position: int) -> None:
         """Write text on line and at position, all zero indexed."""
         self.vfd.write_text(
-            line * self.character_width, position * self.character_width, text
+            position * self.character_width, (line + 1) * self.character_height, text
         )

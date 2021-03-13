@@ -56,13 +56,12 @@ class VolumioClient(threading.Thread):
             socketIO.emit("getState", "")
 
             while not self._stop_event.is_set():
-                socketIO.wait_for_callbacks(seconds=20)
+                socketIO.wait_for_callbacks(seconds=0.5)
                 socketIO.emit("getState", "")
 
     def _on_state_response(self, *args: Any) -> None:
 
         response = args[0]
-        log.debug(f"_on_state_response: {response}")
 
         status = PlayerStatus()
 
@@ -85,9 +84,7 @@ class VolumioClient(threading.Thread):
         # Numeric values
         status.elapsed = int(response["seek"]) if "seek" in response else 0
         status.duration = int(response["duration"]) if "duration" in response else 0
-        status.remaining = int(response["volume"]) if "volume" in response else 0
-
-        log.debug(f"_on_state_response: {status}")
+        status.volume = int(response["volume"]) if "volume" in response else 0
 
         # put PLayer Status on queue.
         self._status_queue.put(status, block=False)

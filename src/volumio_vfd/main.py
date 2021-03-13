@@ -21,6 +21,8 @@ def setup_logging(debug_stdout: bool = False) -> None:
 
 
 def main() -> None:
+    log.info("Starting ...")
+
     display = CharacterDisplayNoritake()
 
     status_queue: queue.Queue = queue.Queue()
@@ -31,31 +33,33 @@ def main() -> None:
 
     try:
         volumio_client.start()
+        log.info("Started")
         while True:
-            log.debug("Main thread tick.")
-            time.sleep(1)  # Delay for 1 second
-        # while True:
-        #     try:
-        #         player_status = player_status_queue.get(timeout=1000)
-        #         player_status_queue.task_done()
-        #         assert isinstance(player_status, PlayerStatus)
-        #
-        #         display.update(datetime.now(), player_status)
-        #
-        #     except queue.Empty:
-        #         pass
+            now = datetime.now()
+            try:
+                player_status = status_queue.get(timeout=0.1)
+                assert isinstance(player_status, PlayerStatus)
+                display.update_status(player_status)
+                status_queue.task_done()
+
+            except queue.Empty:
+                pass
+
+            display.update_time(now)
+            time.sleep(0.1)  # Delay for 0.5 second
 
     except KeyboardInterrupt:
         print("")
         pass
 
     finally:
+        log.info("Exiting...")
         volumio_client.join()
-        # status_queue.join()
+        status_queue.join()
 
-    print("Exiting...")
+    log.info("Done.")
 
 
 if __name__ == "__main__":
-    setup_logging(True)
+    setup_logging(False)
     main()

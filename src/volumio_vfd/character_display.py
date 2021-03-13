@@ -1,7 +1,10 @@
 import abc
 import datetime
+import logging
 
 from volumio_vfd.player_status import PlayerState, PlayerStatus
+
+log = logging.getLogger(__name__)
 
 
 class CharacterDisplay(metaclass=abc.ABCMeta):
@@ -41,13 +44,12 @@ class CharacterDisplay(metaclass=abc.ABCMeta):
     def write(self, text: str, line: int, position: int) -> None:
         """Write text on line and at position, all zero indexed."""
 
-    def _update_item(self, old: str, new: str, line: int, position: int = 0) -> None:
-        if old != new:
-            limit = self.width - self.margin - 3
-            if len(new) > limit:
-                self.write(new[:limit] + "...", line, position)
-            else:
-                self.write(new + "...", line, position)
+    def _update_item(self, new: str, line: int, position: int = 0) -> None:
+        limit = self.width - self.margin - 3
+        if len(new) > limit:
+            self.write(new[:limit] + "...", line, position)
+        else:
+            self.write(new, line, position)
 
     def _update_seconds(self, seconds: int, line: int) -> None:
         timestr = str(datetime.timedelta(seconds=seconds))
@@ -61,20 +63,28 @@ class CharacterDisplay(metaclass=abc.ABCMeta):
     def update_status(self, new_status: PlayerStatus) -> None:
         """Update the display with latest player status."""
 
+        remaining: int = new_status.duration - new_status.elapsed // 1000
+
         # Clear screen if there is a change of state
         if new_status.state != self.current_status.state:
+            self.current_status = PlayerStatus()
             self.clear()
 
         # If stopped we simply display the time
         if new_status.state != PlayerState.Stopped:
-            self._update_item(new_status.performer, self.current_status.performer, 0)
-            self._update_item(new_status.composer, self.current_status.composer, 1)
-            self._update_item(new_status.oeuvre, self.current_status.oeuvre, 2)
-            self._update_item(new_status.part, self.current_status.part, 3)
+            if self.current_status.performer != new_status.performer:
+                self._update_item(new_status.performer, 0)
+            if self.current_status.composer != new_status.composer:
+                self._update_item(new_status.composer, 1)
+            if self.current_status.oeuvre != new_status.oeuvre:
+                self._update_item(new_status.oeuvre, 2)
+            if self.current_status.part != new_status.part:
+                self._update_item(new_status.part, 3)
+
             self._update_volume(new_status.volume, 0)
             self._update_seconds(new_status.duration, 1)
-            self._update_seconds(new_status.elapsed, 2)
-            self._update_seconds(new_status.remaining, 3)
+            self._update_seconds(new_status.elapsed // 1000, 2)
+            self._update_seconds(remaining, 3)
 
         self.current_status = new_status
 
