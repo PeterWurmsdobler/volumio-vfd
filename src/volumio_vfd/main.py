@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 
 from volumio_vfd.character_display_noritake import CharacterDisplayNoritake
-from volumio_vfd.player_status import PlayerStatus
 from volumio_vfd.volumio_client import VolumioClient
 
 log = logging.getLogger(__name__)
@@ -35,18 +34,19 @@ def main() -> None:
         volumio_client.start()
         log.info("Started")
         while True:
-            now = datetime.now()
+            timsteap = datetime.now()
+            player_status = None
             try:
                 player_status = status_queue.get(timeout=0.1)
-                assert isinstance(player_status, PlayerStatus)
-                display.update_status(player_status)
                 status_queue.task_done()
 
             except queue.Empty:
                 pass
+            finally:
+                display.update(timsteap, player_status)
 
-            display.update_time(now)
-            time.sleep(0.1)  # Delay for 0.5 second
+            # Delay for 0.5 second
+            time.sleep(0.1)
 
     except KeyboardInterrupt:
         print("")

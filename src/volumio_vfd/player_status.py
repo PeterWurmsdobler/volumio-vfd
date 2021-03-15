@@ -15,6 +15,6 @@ class PlayerStatus:
     composer: str = ""  # the artist having composed the oeuvre
     oeuvre: str = ""  # the oeuvre, concert or album
     part: str = ""  # the part, movement or song
-    duration: int = 0  # duration of part in seconds
-    elapsed: int = 0  # elapsed time in milliseconds
+    duration: float = 0.0  # duration in seconds
+    elapsed: float = 0.0  # elapsed time in seconds
     volume: int = 0  # volume as percentage

@@ -1,6 +1,7 @@
 import abc
-import datetime
 import logging
+from datetime import datetime, timedelta
+from typing import Optional
 
 from volumio_vfd.player_status import PlayerState, PlayerStatus
 
@@ -24,7 +25,8 @@ class CharacterDisplay(metaclass=abc.ABCMeta):
 
     margin: int = 8
 
-    current_status: PlayerStatus = PlayerStatus()
+    last_status: PlayerStatus = PlayerStatus()
+    last_update: datetime = datetime.now()
 
     @property
     @abc.abstractmethod
@@ -51,47 +53,50 @@ class CharacterDisplay(metaclass=abc.ABCMeta):
         else:
             self.write(new, line, position)
 
-    def _update_seconds(self, seconds: int, line: int) -> None:
-        timestr = str(datetime.timedelta(seconds=seconds))
+    def _update_seconds(self, seconds: float, line: int) -> None:
+        timestr = str(timedelta(seconds=int(seconds)))
         self.write(timestr, line, self.width - len(timestr) - 1)
 
     def _update_volume(self, volume: int, line: int) -> None:
-        if self.current_status.volume != volume:
+        if self.last_status.volume != volume:
             volume_str = f"{volume}%"
             self.write(volume_str, line, self.width - len(volume_str) - 1)
 
-    def update_status(self, new_status: PlayerStatus) -> None:
+    def update(self, timestamp: datetime, new_status: Optional[PlayerStatus]) -> None:
         """Update the display with latest player status."""
 
-        remaining: int = new_status.duration - new_status.elapsed // 1000
+        if new_status is None:
+            # If stopped we simply display the time
+            if self.last_status.state == PlayerState.Stopped:
+                timestr = timestamp.strftime("%H:%M:%S")
+                self.write(timestr, 1, (self.width - len(timestr)) // 2)
+            else:
+                delta = timestamp - self.last_update
+                elapsed: float = self.last_status.elapsed + delta.total_seconds()
+                self._update_seconds(elapsed, 2)
+                self._update_seconds(self.last_status.duration - elapsed, 3)
 
-        # Clear screen if there is a change of state
-        if new_status.state != self.current_status.state:
-            self.current_status = PlayerStatus()
-            self.clear()
+        else:
+            # Clear screen if there is a change of state
+            if new_status.state != self.last_status.state:
+                self.last_status = PlayerStatus()
+                self.clear()
 
-        # If stopped we simply display the time
-        if new_status.state != PlayerState.Stopped:
-            if self.current_status.performer != new_status.performer:
-                self._update_item(new_status.performer, 0)
-            if self.current_status.composer != new_status.composer:
-                self._update_item(new_status.composer, 1)
-            if self.current_status.oeuvre != new_status.oeuvre:
-                self._update_item(new_status.oeuvre, 2)
-            if self.current_status.part != new_status.part:
-                self._update_item(new_status.part, 3)
+            # If stopped we simply display the time
+            if new_status.state != PlayerState.Stopped:
+                if self.last_status.performer != new_status.performer:
+                    self._update_item(new_status.performer, 0)
+                if self.last_status.composer != new_status.composer:
+                    self._update_item(new_status.composer, 1)
+                if self.last_status.oeuvre != new_status.oeuvre:
+                    self._update_item(new_status.oeuvre, 2)
+                if self.last_status.part != new_status.part:
+                    self._update_item(new_status.part, 3)
 
-            self._update_volume(new_status.volume, 0)
-            self._update_seconds(new_status.duration, 1)
-            self._update_seconds(new_status.elapsed // 1000, 2)
-            self._update_seconds(remaining, 3)
+                self._update_volume(new_status.volume, 0)
+                self._update_seconds(new_status.duration, 1)
+                self._update_seconds(new_status.elapsed, 2)
+                self._update_seconds(new_status.duration - new_status.elapsed, 3)
 
-        self.current_status = new_status
-
-    def update_time(self, timestamp: datetime.datetime) -> None:
-        """Update the display with latest time."""
-
-        # If stopped we simply display the time
-        if self.current_status.state == PlayerState.Stopped:
-            timestr = timestamp.strftime("%H:%M:%S")
-            self.write(timestr, 1, (self.width - len(timestr)) // 2)
+            self.last_status = new_status
+            self.last_update = timestamp

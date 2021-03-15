@@ -56,7 +56,9 @@ class VolumioClient(threading.Thread):
             socketIO.emit("getState", "")
 
             while not self._stop_event.is_set():
-                socketIO.wait_for_callbacks(seconds=0.5)
+                # rely on Volumio to push states mostly, but request an update
+                # at a low frequency to get some lacy update.
+                socketIO.wait_for_callbacks(seconds=10)
                 socketIO.emit("getState", "")
 
     def _on_state_response(self, *args: Any) -> None:
@@ -76,14 +78,14 @@ class VolumioClient(threading.Thread):
             status.state = PlayerState.Stopped
 
         # String values
-        status.performer = response["artist"] if "artist" in response else ""
+        status.performer = response["albumartist"] if "albumartist" in response else ""
         status.composer = response["artist"] if "artist" in response else ""
         status.oeuvre = response["album"] if "album" in response else ""
         status.part = response["title"] if "title" in response else ""
 
         # Numeric values
-        status.elapsed = int(response["seek"]) if "seek" in response else 0
-        status.duration = int(response["duration"]) if "duration" in response else 0
+        status.elapsed = float(response["seek"]) / 1000.0 if "seek" in response else 0.0
+        status.duration = float(response["duration"]) if "duration" in response else 0.0
         status.volume = int(response["volume"]) if "volume" in response else 0
 
         # put PLayer Status on queue.
